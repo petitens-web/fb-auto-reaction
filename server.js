@@ -9,13 +9,105 @@ const DATA_DIR = path.join(__dirname, "data");
 const DATA_PATH = path.join(DATA_DIR, "activity.json");
 const APPSTATE_PATH = path.join(__dirname, "appstate.json");
 const DASHBOARD_PATH = path.join(__dirname, "public", "index.html");
+
 const PLATFORMS = new Set(["facebook", "tiktok", "instagram"]);
 const CATEGORIES = new Set(["Reactor request", "Reaction tracking", "Activity record"]);
+const REACTION_MAP = {
+    "LIKE": "LIKE",
+    "LOVE": "LOVE",
+    "CARE": "CARE",
+    "HAHA": "HAHA",
+    "WOW": "WOW",
+    "SAD": "SAD",
+    "ANGRY": "ANGRY"
+};
+
 const MAX_BODY_BYTES = 10 * 1024;
 let records = [];
 let nextId = 1;
 let writeQueue = Promise.resolve();
 let requestQueue = Promise.resolve();
+
+// Utility for extracting Facebook Post ID from URL
+function extractFacebookPostId(url) {
+    try {
+        const parsed = new URL(url);
+        // Direct post ID parameter like fbid=123456
+        if (parsed.searchParams.has("fbid")) {
+            return parsed.searchParams.get("fbid");
+        }
+        // Direct story_fbid parameter
+        if (parsed.searchParams.has("story_fbid")) {
+            return parsed.searchParams.get("story_fbid");
+        }
+        // Path based formats: /posts/123456, /permalink/123456, /pfbid...
+        const parts = parsed.pathname.split("/").filter(Boolean);
+        const postIdx = parts.findIndex(p => ["posts", "permalink", "videos", "photos"].includes(p.toLowerCase()));
+        if (postIdx !== -1 && parts[postIdx + 1]) {
+            return parts[postIdx + 1];
+        }
+        // Fallback to last segment if numeric or standard ID format
+        const lastPart = parts[parts.length - 1];
+        if (lastPart) return lastPart;
+    } catch {
+        // Fallback return original URL if parsing fails
+    }
+    return url;
+}
+
+// Function to trigger real reactions via fca-unofficial
+function executeFacebookBot(postUrl, type, count = 1) {
+    if (!fs.existsSync(APPSTATE_PATH)) {
+        console.error("❌ Bot Error: appstate.json file not found!");
+        return;
+    }
+
+    try {
+        const appState = JSON.parse(fs.readFileSync(APPSTATE_PATH, "utf8"));
+        const reactionType = REACTION_MAP[(type || "").toUpperCase()] || "LIKE";
+        const targetTarget = extractFacebookPostId(postUrl);
+
+        console.log(`🤖 Starting bot execution for ${count} '${reactionType}' reactions on target: ${targetTarget}`);
+
+        login({ appState }, (err, api) => {
+            if (err) {
+                console.error("❌ Bot Login Failed:", err);
+                return;
+            }
+
+            console.log("✅ Facebook Bot Session Logged In Successfully!");
+
+            // Dispatch loop up to specified count
+            let dispatched = 0;
+            const interval = setInterval(() => {
+                if (dispatched >= count) {
+                    clearInterval(interval);
+                    console.log(`🎉 Completed sending ${count} reactions.`);
+                    return;
+                }
+
+                // Call setPostReaction or setMessageReaction based on fca method
+                const reactMethod = api.setPostReaction || api.setMessageReaction;
+                if (typeof reactMethod === "function") {
+                    reactMethod(targetTarget, reactionType, (reactErr) => {
+                        if (reactErr) {
+                            console.error(`⚠️ Failed to send reaction #${dispatched + 1}:`, reactErr);
+                        } else {
+                            console.log(`👍 Reaction #${dispatched + 1} (${reactionType}) dispatched!`);
+                        }
+                    });
+                } else {
+                    console.error("❌ Reaction method not supported by this fca version.");
+                    clearInterval(interval);
+                }
+
+                dispatched++;
+            }, 1000); // 1-second delay per reaction to prevent rate-limiting
+        });
+    } catch (error) {
+        console.error("❌ Error executing Facebook reaction logic:", error);
+    }
+}
 
 function sendJson(response, status, payload) {
     response.writeHead(status, {
@@ -75,52 +167,22 @@ function readJsonBody(request) {
     });
 }
 
-// Facebook Auto-Reaction Logic gamit ang fca-unofficial at appstate.json
-function executeFacebookReaction(postUrl) {
-    if (!fs.existsSync(APPSTATE_PATH)) {
-        console.error("Error: appstate.json file not found! Hindi makapag-login sa Facebook.");
-        return;
-    }
-
-    try {
-        const appState = JSON.parse(fs.readFileSync(APPSTATE_PATH, "utf8"));
-
-        login({ appState: appState }, (err, api) => {
-            if (err) {
-                console.error("Facebook Login Failed:", err);
-                return;
-            }
-
-            console.log(`Logged in successfully! Nagpapadala ng reaksyon sa post: ${postUrl}`);
-            
-            // Note: Maaari mong i-parse ang post ID mula sa URL para magamit ang api.setPostReaction o iba pang methods
-            // Halimbawa: api.setMessageReaction / setPostReaction depende sa version ng fca-unofficial mo.
-        });
-    } catch (error) {
-        console.error("Error sa pagbasa ng appstate.json o pag-execute ng reaction:", error);
-    }
-}
-
-function addRecord(platform, category, url) {
+function addRecord(platform, category, url, reactionType, botCount) {
     const operation = requestQueue.then(async () => {
         const record = {
             id: nextId++,
             platform,
             category,
             url,
-            status: "recorded",
+            reactionType: reactionType || "LIKE",
+            botCount: botCount || 1,
+            status: "dispatched",
             createdAt: new Date().toISOString()
         };
         records.unshift(record);
 
         try {
             await queueSave();
-            
-            // Kung Facebook ang platform at category ay Reactor request, i-trigger ang automation
-            if (platform === "facebook" && category === "Reactor request") {
-                executeFacebookReaction(url);
-            }
-
             return record;
         } catch (error) {
             records.shift();
@@ -180,6 +242,8 @@ const server = http.createServer(async (request, response) => {
             const platform = typeof body.platform === "string" ? body.platform.toLowerCase() : "";
             const category = body.category;
             const urlValue = typeof body.url === "string" ? body.url.trim() : "";
+            const reactionType = typeof body.reactionType === "string" ? body.reactionType : "LIKE";
+            const botCount = Number(body.botCount) || 1;
 
             if (!PLATFORMS.has(platform)) {
                 sendJson(response, 400, { error: "Choose a supported platform" });
@@ -208,7 +272,12 @@ const server = http.createServer(async (request, response) => {
 
             let record;
             try {
-                record = await addRecord(platform, category, urlValue);
+                record = await addRecord(platform, category, urlValue, reactionType, botCount);
+                
+                // Execute actual Facebook reaction automation if platform is Facebook
+                if (platform === "facebook") {
+                    executeFacebookBot(urlValue, reactionType, botCount);
+                }
             } catch (error) {
                 console.error("Could not save request:", error);
                 sendJson(response, 500, { error: "Could not save the request. Check server permissions and try again." });
@@ -237,8 +306,7 @@ const server = http.createServer(async (request, response) => {
             response.writeHead(200, {
                 "Content-Type": "text/html; charset=utf-8",
                 "Cache-Control": "no-store",
-                "X-Content-Type-Options": "nosniff",
-                "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+                "X-Content-Type-Options": "nosniff"
             });
             response.end(content);
         });
