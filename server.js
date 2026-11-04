@@ -1,11 +1,13 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const login = require("fca-unofficial");
 
 const HOST = process.env.HOST || "0.0.0.0";
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const DATA_PATH = path.join(DATA_DIR, "activity.json");
+const APPSTATE_PATH = path.join(__dirname, "appstate.json");
 const DASHBOARD_PATH = path.join(__dirname, "public", "index.html");
 const PLATFORMS = new Set(["facebook", "tiktok", "instagram"]);
 const CATEGORIES = new Set(["Reactor request", "Reaction tracking", "Activity record"]);
@@ -73,6 +75,32 @@ function readJsonBody(request) {
     });
 }
 
+// Facebook Auto-Reaction Logic gamit ang fca-unofficial at appstate.json
+function executeFacebookReaction(postUrl) {
+    if (!fs.existsSync(APPSTATE_PATH)) {
+        console.error("Error: appstate.json file not found! Hindi makapag-login sa Facebook.");
+        return;
+    }
+
+    try {
+        const appState = JSON.parse(fs.readFileSync(APPSTATE_PATH, "utf8"));
+
+        login({ appState: appState }, (err, api) => {
+            if (err) {
+                console.error("Facebook Login Failed:", err);
+                return;
+            }
+
+            console.log(`Logged in successfully! Nagpapadala ng reaksyon sa post: ${postUrl}`);
+            
+            // Note: Maaari mong i-parse ang post ID mula sa URL para magamit ang api.setPostReaction o iba pang methods
+            // Halimbawa: api.setMessageReaction / setPostReaction depende sa version ng fca-unofficial mo.
+        });
+    } catch (error) {
+        console.error("Error sa pagbasa ng appstate.json o pag-execute ng reaction:", error);
+    }
+}
+
 function addRecord(platform, category, url) {
     const operation = requestQueue.then(async () => {
         const record = {
@@ -87,6 +115,12 @@ function addRecord(platform, category, url) {
 
         try {
             await queueSave();
+            
+            // Kung Facebook ang platform at category ay Reactor request, i-trigger ang automation
+            if (platform === "facebook" && category === "Reactor request") {
+                executeFacebookReaction(url);
+            }
+
             return record;
         } catch (error) {
             records.shift();
