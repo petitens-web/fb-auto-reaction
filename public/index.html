@@ -75,7 +75,7 @@
         .user-title { font-size: 13px; font-weight: 650; }
         .user-subtitle { margin-top: 3px; color: var(--muted); font-size: 11px; }
 
-        .content { width: min(100% - 238px, 1320px); margin-left: 238px; padding: 25px clamp(22px, 4vw, 56px) 48px; }
+        .content { width: calc(100% - 238px); margin-left: 238px; padding: 25px clamp(22px, 4vw, 56px) 48px; }
         .topbar { display: flex; min-height: 38px; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
         .breadcrumb { color: #b39ca7; font-size: 12px; }
         .online-pill, .live-pill, .tag {
@@ -178,7 +178,6 @@
         .message { min-height: 18px; color: var(--green); font-size: 11px; }
         .message.error { color: #ff9aab; }
         .footer { margin-top: 27px; color: #796872; font-size: 10px; text-align: right; }
-        .mobile-brand { display: none; }
 
         @media (max-width: 1050px) {
             .sidebar { width: 205px; padding-right: 14px; padding-left: 14px; }
@@ -264,7 +263,7 @@
                     </article>
                     <article class="card metric">
                         <div class="metric-head">Server status <span class="metric-icon">⌁</span></div>
-                        <strong id="server-status">...</strong><p>Maxi local API</p>
+                        <strong id="server-status">...</strong><p>Maxi API backend</p>
                         <div class="live-pill"><span class="green-dot"></span>Backend connection</div>
                     </article>
                 </div>
@@ -291,12 +290,12 @@
                                 <span class="action-arrow">↗</span>
                             </a>
                         </div>
-                        <div class="workspace-note"><strong>Maxi workspace</strong><p>Requests are stored locally for easy review. No social-platform actions are performed.</p></div>
+                        <div class="workspace-note"><strong>Maxi workspace</strong><p>Requests are recorded and processed by your Node.js backend.</p></div>
                     </article>
                 </div>
 
                 <div class="section-head">
-                    <div class="left"><h2>Recent activity</h2><p>Records fetched from your local database</p></div>
+                    <div class="left"><h2>Recent activity</h2><p>Records fetched from your database</p></div>
                     <button class="button secondary" type="button" data-refresh>Refresh ↻</button>
                 </div>
                 <div class="card table-wrap"><table>
@@ -314,22 +313,24 @@
                     <thead><tr><th>ID</th><th>PLATFORM</th><th>REQUEST</th><th>CONTENT URL</th><th>DATE</th><th>STATUS</th></tr></thead>
                     <tbody id="activity-table"></tbody>
                 </table></div>
-                <p class="form-help">History is stored in this project’s local data folder. Requests are records only—nothing is sent to social platforms.</p>
+                <p class="form-help">History is stored in this project’s data folder.</p>
             </section>
 
             <section id="request" class="view" aria-labelledby="request-heading">
                 <div class="hero">
-                    <div><div class="eyebrow">WORKSPACE REQUEST</div><h1 id="request-heading">New <em>request.</em></h1><p class="subtitle">Save a link and request category to your local activity history.</p></div>
+                    <div><div class="eyebrow">WORKSPACE REQUEST</div><h1 id="request-heading">New <em>request.</em></h1><p class="subtitle">Configure and send an auto-reaction request.</p></div>
                 </div>
                 <form id="request-form" class="card form-card">
-                    <div class="panel-title-row"><div><h2>Request details</h2><p class="panel-caption">The request is saved locally, not dispatched.</p></div><div class="live-pill"><span class="green-dot"></span>Backend connected</div></div>
+                    <div class="panel-title-row"><div><h2>Request details</h2><p class="panel-caption">Select parameters and trigger reactions.</p></div><div class="live-pill"><span class="green-dot"></span>Backend connected</div></div>
                     <div class="form-grid">
                         <div class="field full"><label for="url">Post or content URL</label><input id="url" name="url" type="url" placeholder="https://…" maxlength="2048" required></div>
                         <div class="field"><label for="platform">Platform</label><select id="platform" name="platform"><option value="facebook">Facebook</option><option value="tiktok">TikTok</option><option value="instagram">Instagram</option></select></div>
                         <div class="field"><label for="category">Request category</label><select id="category" name="category"><option>Reactor request</option><option>Reaction tracking</option><option>Activity record</option></select></div>
+                        <div class="field"><label for="reactionType">Reaction Type</label><select id="reactionType" name="reactionType"><option value="LIKE">Like 👍</option><option value="LOVE">Love ❤️</option><option value="CARE">Care 🫂</option><option value="HAHA">Haha 😂</option><option value="WOW">Wow 😮</option><option value="SAD">Sad 😢</option><option value="ANGRY">Angry 😡</option></select></div>
+                        <div class="field"><label for="botCount">Number of Bot Reactions (Max: 100,000)</label><input id="botCount" name="botCount" type="number" min="1" max="100000" value="100" required></div>
                     </div>
-                    <div class="form-footer"><button id="submit-button" class="button" type="submit">Save request ↗</button><div id="form-message" class="message" aria-live="polite"></div></div>
-                    <p class="form-help">This creates a record in your local backend. It does not dispatch reactors or reactions to Facebook, TikTok, or Instagram.</p>
+                    <div class="form-footer"><button id="submit-button" class="button" type="submit">Dispatch reactions ↗</button><div id="form-message" class="message" aria-live="polite"></div></div>
+                    <p class="form-help">Submitting dispatches the reaction request to your backend bot service.</p>
                 </form>
             </section>
 
@@ -389,9 +390,9 @@
             } catch (error) {
                 status.textContent = "OFFLINE";
                 const message = document.getElementById("form-message");
-                message.textContent = "Could not connect to the local backend. Refresh the page or restart the server.";
+                message.textContent = "Could not connect to the backend. Refresh the page or restart the server.";
                 message.classList.add("error");
-                console.error("Could not load local activity:", error);
+                console.error("Could not load activity:", error);
             }
         }
 
@@ -416,7 +417,7 @@
             message.textContent = "";
             message.classList.remove("error");
             button.disabled = true;
-            button.textContent = "Saving…";
+            button.textContent = "Dispatching…";
 
             try {
                 const formData = new FormData(form);
@@ -426,20 +427,22 @@
                     body: JSON.stringify({
                         url: formData.get("url"),
                         platform: formData.get("platform"),
-                        category: formData.get("category")
+                        category: formData.get("category"),
+                        reactionType: formData.get("reactionType"),
+                        botCount: Number(formData.get("botCount"))
                     })
                 });
                 const result = await response.json();
-                if (!response.ok) throw new Error(result.error || "Could not save your request");
+                if (!response.ok) throw new Error(result.error || "Could not dispatch request");
                 form.reset();
-                message.textContent = `Request #${result.record.id} saved to your local activity.`;
+                message.textContent = `Request #${result.record.id} dispatched successfully!`;
                 await refresh();
             } catch (error) {
-                message.textContent = error.message || "Could not save your request.";
+                message.textContent = error.message || "Could not dispatch request.";
                 message.classList.add("error");
             } finally {
                 button.disabled = false;
-                button.textContent = "Save request ↗";
+                button.textContent = "Dispatch reactions ↗";
             }
         });
 
