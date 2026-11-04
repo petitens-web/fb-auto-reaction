@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#100b0e">
+    <title>Maxi — Reactor Dashboard</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #100b0e;
+            color: #f8f2f5;
+            font-synthesis: none;
+            --surface: #181115;
+            --surface-raised: #20151b;
+            --border: #33262d;
+            --muted: #aa98a1;
+            --accent: #d34c7b;
+            --accent-light: #ee8cac;
+            --green: #88d3a1;
+        }
+
+        * { box-sizing: border-box; }
+
+        body { min-width: 320px; min-height: 100vh; margin: 0; }
+        button, input, select { font: inherit; }
+        button, a { -webkit-tap-highlight-color: transparent; }
+
+        .app { min-height: 100vh; }
+
+        .sidebar {
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 3;
+            display: flex;
+            width: 238px;
+            flex-direction: column;
+            padding: 28px 20px 20px;
+            border-right: 1px solid var(--border);
+            background: #120c10;
+        }
+
+        .brand { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 720; }
+        .brand-mark, .user-mark {
+            display: grid;
+            flex: 0 0 auto;
+            place-items: center;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #e35d8b, #9f2857);
+            color: white;
+            font-weight: 750;
+        }
+        .brand-mark { width: 42px; height: 42px; font-size: 20px; }
+        .sidebar-label { margin: 48px 0 11px; color: #927d87; font-size: 10px; font-weight: 750; letter-spacing: .16em; }
+        .nav { display: grid; gap: 8px; }
+        .nav a {
+            display: flex;
+            min-height: 48px;
+            align-items: center;
+            gap: 12px;
+            padding: 0 13px;
+            border: 1px solid transparent;
+            border-radius: 11px;
+            color: #b8a9b0;
+            font-size: 14px;
+            font-weight: 620;
+            text-decoration: none;
+            transition: background .16s, color .16s, border-color .16s;
+        }
+        .nav a:hover, .nav a.active { border-color: #54303f; background: #321923; color: #fff1f6; }
+        .nav-icon { width: 17px; color: var(--accent-light); text-align: center; }
+        .user-card { display: flex; align-items: center; gap: 11px; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--border); }
+        .user-mark { width: 38px; height: 38px; border-radius: 50%; font-size: 14px; }
+        .user-title { font-size: 13px; font-weight: 650; }
+        .user-subtitle { margin-top: 3px; color: var(--muted); font-size: 11px; }
+
+        .content { width: min(100% - 238px, 1320px); margin-left: 238px; padding: 25px clamp(22px, 4vw, 56px) 48px; }
+        .topbar { display: flex; min-height: 38px; align-items: flex-start; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+        .breadcrumb { color: #b39ca7; font-size: 12px; }
+        .online-pill, .live-pill, .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            border: 1px solid #49303a;
+            border-radius: 999px;
+            background: #24151c;
+            color: #e7b5c5;
+            font-size: 11px;
+        }
+        .online-pill { padding: 7px 11px; }
+        .green-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 9px #88d3a188; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+        .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; padding: 37px 0 28px; }
+        .eyebrow, .small-label { color: #bc8e9f; font-size: 10px; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
+        h1 { margin: 12px 0 8px; font-size: clamp(29px, 4vw, 40px); line-height: 1.15; letter-spacing: -.045em; }
+        h1 em { color: var(--accent-light); font-style: normal; }
+        .subtitle { max-width: 610px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+        .button {
+            display: inline-flex;
+            min-height: 44px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 0 16px;
+            border: 1px solid #dc5d89;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #d94f7e, #ad315f);
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: filter .16s, transform .16s;
+        }
+        .button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+        .button:disabled { cursor: wait; opacity: .7; transform: none; }
+        .button.secondary { border-color: var(--border); background: var(--surface-raised); color: #e8dbe0; }
+        .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+        .card { border: 1px solid var(--border); border-radius: 15px; background: var(--surface); }
+        .metric { min-height: 148px; padding: 19px 20px; }
+        .metric-head { display: flex; align-items: center; justify-content: space-between; color: #d0bdc5; font-size: 12px; }
+        .metric-icon { color: var(--accent-light); font-size: 16px; }
+        .metric strong { display: block; margin: 17px 0 5px; font-size: 31px; letter-spacing: -.04em; }
+        .metric p { margin: 0; color: var(--muted); font-size: 11px; }
+        .metric .live-pill { margin-top: 11px; padding: 5px 9px; }
+        .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, .95fr); gap: 15px; margin-top: 17px; }
+        .panel { padding: 20px; }
+        .panel-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+        h2 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+        .panel-caption { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+        .live-pill { padding: 7px 10px; white-space: nowrap; }
+        .chart { display: flex; height: 160px; align-items: flex-end; gap: 14px; padding: 22px 4px 0; }
+        .chart-day { display: flex; height: 100%; flex: 1; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; color: #9c8791; font-size: 10px; }
+        .bar-track { display: flex; width: min(100%, 38px); height: 112px; align-items: flex-end; overflow: hidden; border-radius: 5px 5px 2px 2px; background: #24171d; }
+        .bar { width: 100%; min-height: 4px; border-radius: 5px 5px 2px 2px; background: linear-gradient(0deg, #922c51, #ec6594); transition: height .25s; }
+        .chart-empty { color: #705e67; font-size: 11px; text-align: center; }
+        .quick-actions { display: grid; gap: 10px; margin-top: 18px; }
+        .action-link { display: flex; align-items: center; gap: 12px; padding: 13px; border: 1px solid #382831; border-radius: 11px; color: inherit; text-decoration: none; transition: background .16s; }
+        .action-link:hover { background: #281820; }
+        .action-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 10px; background: #38202b; color: var(--accent-light); }
+        .action-link strong { display: block; font-size: 12px; }
+        .action-link small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+        .action-arrow { margin-left: auto; color: #bd8297; }
+        .workspace-note { margin-top: 12px; padding: 14px; border: 1px solid #432331; border-radius: 11px; background: #24141a; }
+        .workspace-note strong { font-size: 11px; }
+        .workspace-note p { margin: 5px 0 0; color: #b19da5; font-size: 10px; line-height: 1.55; }
+        .section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 31px 0 13px; }
+        .section-head .left p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { padding: 12px 13px; border-bottom: 1px solid var(--border); color: #a78f9a; font-size: 9px; letter-spacing: .1em; }
+        td { max-width: 300px; padding: 14px 13px; border-bottom: 1px solid #30232a; color: #e4d7dd; font-size: 11px; overflow-wrap: anywhere; }
+        tbody tr:last-child td { border-bottom: 0; }
+        .status-tag { padding: 5px 9px; border-color: #284335; background: #17241d; color: #9bdbb0; text-transform: capitalize; }
+        .empty-row { padding: 26px; color: var(--muted); text-align: center; }
+        .form-card { max-width: 740px; margin-top: 25px; padding: clamp(19px, 4vw, 30px); }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; margin-top: 22px; }
+        .field { display: grid; gap: 8px; }
+        .field.full { grid-column: 1 / -1; }
+        .field label { color: #dfcfd6; font-size: 11px; font-weight: 650; }
+        .field input, .field select {
+            width: 100%;
+            min-height: 43px;
+            padding: 0 12px;
+            border: 1px solid #44323b;
+            border-radius: 9px;
+            outline: none;
+            background: #110d10;
+            color: #f6edf1;
+            font-size: 12px;
+        }
+        .field input:focus, .field select:focus { border-color: #c94d78; box-shadow: 0 0 0 3px #ca4c7720; }
+        .form-footer { display: flex; align-items: center; gap: 14px; margin-top: 19px; }
+        .form-help { margin: 13px 0 0; color: #a38e98; font-size: 10px; line-height: 1.6; }
+        .message { min-height: 18px; color: var(--green); font-size: 11px; }
+        .message.error { color: #ff9aab; }
+        .footer { margin-top: 27px; color: #796872; font-size: 10px; text-align: right; }
+        .mobile-brand { display: none; }
+
+        @media (max-width: 1050px) {
+            .sidebar { width: 205px; padding-right: 14px; padding-left: 14px; }
+            .content { width: calc(100% - 205px); margin-left: 205px; padding-right: 24px; padding-left: 24px; }
+            .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 740px) {
+            .sidebar { position: sticky; inset: 0 0 auto; width: auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 11px 15px; border-right: 0; border-bottom: 1px solid var(--border); }
+            .brand { gap: 9px; font-size: 15px; }
+            .brand-mark { width: 35px; height: 35px; border-radius: 10px; font-size: 16px; }
+            .sidebar-label, .user-card { display: none; }
+            .nav { display: flex; gap: 4px; }
+            .nav a { min-height: 36px; gap: 6px; padding: 0 9px; font-size: 11px; }
+            .content { width: 100%; margin: 0; padding: 17px 16px 35px; }
+            .topbar { display: none; }
+            .hero { align-items: flex-start; padding-top: 22px; }
+            .hero .button { flex: 0 0 auto; }
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+            .nav a { flex-direction: column; gap: 0; justify-content: center; padding: 4px 7px; font-size: 9px; }
+            .nav-icon { font-size: 14px; line-height: 1.1; }
+            .hero { flex-direction: column; gap: 14px; }
+            .hero .button { width: 100%; }
+            .metrics { gap: 9px; }
+            .metric { min-height: 125px; padding: 14px; }
+            .metric strong { margin-top: 13px; font-size: 27px; }
+            .panel { padding: 16px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .field.full { grid-column: auto; }
+            .form-footer { align-items: flex-start; flex-direction: column; }
+            .section-head { align-items: flex-start; }
+            th, td { padding-right: 10px; padding-left: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="brand"><span class="brand-mark">M</span><span>Maxi</span></div>
+            <div class="sidebar-label">WORKSPACE</div>
+            <nav class="nav" aria-label="Workspace">
+                <a class="active" href="#overview" data-view="overview"><span class="nav-icon">▦</span>Overview</a>
+                <a href="#activity" data-view="activity"><span class="nav-icon">↗</span>Activity</a>
+                <a href="#request" data-view="request"><span class="nav-icon">＋</span>New request</a>
+            </nav>
+            <div class="user-card">
+                <span class="user-mark">M</span>
+                <div><div class="user-title">Maxi workspace</div><div class="user-subtitle">Activity center</div></div>
+            </div>
+        </aside>
+
+        <main class="content">
+            <div class="topbar">
+                <div class="breadcrumb">Maxi / <span id="breadcrumb-view">Overview</span></div>
+                <div class="online-pill"><span class="green-dot"></span>Dashboard</div>
+            </div>
+
+            <section id="overview" class="view active" aria-labelledby="welcome-heading">
+                <div class="hero">
+                    <div>
+                        <div class="eyebrow">MAXI SOCIAL WORKSPACE</div>
+                        <h1 id="welcome-heading">Welcome to <em>Maxi.</em></h1>
+                        <p class="subtitle">Manage reactor requests and review your activity in one place.</p>
+                    </div>
+                    <a class="button" href="#request" data-view="request">＋ New request</a>
+                </div>
+
+                <div class="metrics" aria-label="Workspace statistics">
+                    <article class="card metric">
+                        <div class="metric-head">Total activity <span class="metric-icon">↗</span></div>
+                        <strong id="total-count">—</strong><p>Saved in your workspace</p>
+                    </article>
+                    <article class="card metric">
+                        <div class="metric-head">Recorded <span class="metric-icon">✓</span></div>
+                        <strong id="recorded-count">—</strong><p>Activity log entries</p>
+                        <div class="live-pill">● Local database</div>
+                    </article>
+                    <article class="card metric">
+                        <div class="metric-head">Recent records <span class="metric-icon">◷</span></div>
+                        <strong id="recent-count">—</strong><p>Latest saved requests</p>
+                        <div class="live-pill">● Live data</div>
+                    </article>
+                    <article class="card metric">
+                        <div class="metric-head">Server status <span class="metric-icon">⌁</span></div>
+                        <strong id="server-status">...</strong><p>Maxi local API</p>
+                        <div class="live-pill"><span class="green-dot"></span>Backend connection</div>
+                    </article>
+                </div>
+
+                <div class="dashboard-grid">
+                    <article class="card panel">
+                        <div class="panel-title-row">
+                            <div><h2>Workspace activity</h2><p class="panel-caption">Requests saved over the last 7 days</p></div>
+                            <div class="live-pill">Local database</div>
+                        </div>
+                        <div id="chart" class="chart" aria-label="Activity for the last seven days"></div>
+                    </article>
+                    <article class="card panel">
+                        <div><h2>Quick actions</h2><p class="panel-caption">Manage your workspace</p></div>
+                        <div class="quick-actions">
+                            <a class="action-link" href="#request" data-view="request">
+                                <span class="action-icon">＋</span>
+                                <span><strong>New reactor request</strong><small>Save a request for tracking</small></span>
+                                <span class="action-arrow">↗</span>
+                            </a>
+                            <a class="action-link" href="#activity" data-view="activity">
+                                <span class="action-icon">↗</span>
+                                <span><strong>Activity history</strong><small>Review saved records</small></span>
+                                <span class="action-arrow">↗</span>
+                            </a>
+                        </div>
+                        <div class="workspace-note"><strong>Maxi workspace</strong><p>Requests are stored locally for easy review. No social-platform actions are performed.</p></div>
+                    </article>
+                </div>
+
+                <div class="section-head">
+                    <div class="left"><h2>Recent activity</h2><p>Records fetched from your local database</p></div>
+                    <button class="button secondary" type="button" data-refresh>Refresh ↻</button>
+                </div>
+                <div class="card table-wrap"><table>
+                    <thead><tr><th>ID</th><th>PLATFORM</th><th>REQUEST</th><th>DATE</th><th>STATUS</th></tr></thead>
+                    <tbody id="recent-table"></tbody>
+                </table></div>
+            </section>
+
+            <section id="activity" class="view" aria-labelledby="activity-heading">
+                <div class="hero">
+                    <div><div class="eyebrow">WORKSPACE HISTORY</div><h1 id="activity-heading">Your <em>activity.</em></h1><p class="subtitle">Every request you save, in one place.</p></div>
+                    <button class="button secondary" type="button" data-refresh>Refresh ↻</button>
+                </div>
+                <div class="card table-wrap"><table>
+                    <thead><tr><th>ID</th><th>PLATFORM</th><th>REQUEST</th><th>CONTENT URL</th><th>DATE</th><th>STATUS</th></tr></thead>
+                    <tbody id="activity-table"></tbody>
+                </table></div>
+                <p class="form-help">History is stored in this project’s local data folder. Requests are records only—nothing is sent to social platforms.</p>
+            </section>
+
+            <section id="request" class="view" aria-labelledby="request-heading">
+                <div class="hero">
+                    <div><div class="eyebrow">WORKSPACE REQUEST</div><h1 id="request-heading">New <em>request.</em></h1><p class="subtitle">Save a link and request category to your local activity history.</p></div>
+                </div>
+                <form id="request-form" class="card form-card">
+                    <div class="panel-title-row"><div><h2>Request details</h2><p class="panel-caption">The request is saved locally, not dispatched.</p></div><div class="live-pill"><span class="green-dot"></span>Backend connected</div></div>
+                    <div class="form-grid">
+                        <div class="field full"><label for="url">Post or content URL</label><input id="url" name="url" type="url" placeholder="https://…" maxlength="2048" required></div>
+                        <div class="field"><label for="platform">Platform</label><select id="platform" name="platform"><option value="facebook">Facebook</option><option value="tiktok">TikTok</option><option value="instagram">Instagram</option></select></div>
+                        <div class="field"><label for="category">Request category</label><select id="category" name="category"><option>Reactor request</option><option>Reaction tracking</option><option>Activity record</option></select></div>
+                    </div>
+                    <div class="form-footer"><button id="submit-button" class="button" type="submit">Save request ↗</button><div id="form-message" class="message" aria-live="polite"></div></div>
+                    <p class="form-help">This creates a record in your local backend. It does not dispatch reactors or reactions to Facebook, TikTok, or Instagram.</p>
+                </form>
+            </section>
+
+            <footer class="footer">Maxi · Local social workspace ✦</footer>
+        </main>
+    </div>
+    <script>
+        const views = ["overview", "activity", "request"];
+        const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+        function escapeText(value) {
+            return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+            })[character]);
+        }
+
+        function rowMarkup(record, includeUrl) {
+            const date = new Date(record.createdAt);
+            const safeDate = Number.isNaN(date.getTime()) ? "Unknown date" : dateFormat.format(date);
+            const urlCell = includeUrl
+                ? `<td><a href="${escapeText(record.url)}" target="_blank" rel="noreferrer">${escapeText(record.url)}</a></td>`
+                : "";
+            return `<tr><td>#${escapeText(record.id)}</td><td>${escapeText(record.platform)}</td><td>${escapeText(record.category)}</td>${urlCell}<td>${escapeText(safeDate)}</td><td><span class="tag status-tag">${escapeText(record.status)}</span></td></tr>`;
+        }
+
+        function renderTable(element, records, includeUrl) {
+            if (!records.length) {
+                element.innerHTML = `<tr><td class="empty-row" colspan="${includeUrl ? 6 : 5}">Your activity will appear here after records are saved.</td></tr>`;
+                return;
+            }
+            element.innerHTML = records.map((record) => rowMarkup(record, includeUrl)).join("");
+        }
+
+        function renderChart(activityByDay) {
+            const chart = document.getElementById("chart");
+            const maximum = Math.max(1, ...activityByDay.map((day) => day.count));
+            chart.innerHTML = activityByDay.map((day) => {
+                const height = day.count ? Math.max(8, Math.round(day.count / maximum * 100)) : 3;
+                return `<div class="chart-day"><div class="bar-track" title="${day.count} saved"><div class="bar" style="height:${height}%"></div></div><span>${escapeText(day.label)}</span></div>`;
+            }).join("");
+        }
+
+        async function refresh() {
+            const status = document.getElementById("server-status");
+            try {
+                const response = await fetch("/api/activities", { headers: { Accept: "application/json" } });
+                if (!response.ok) throw new Error("Backend returned " + response.status);
+                const data = await response.json();
+                const records = Array.isArray(data.records) ? data.records : [];
+                document.getElementById("total-count").textContent = data.stats.total;
+                document.getElementById("recorded-count").textContent = data.stats.recorded;
+                document.getElementById("recent-count").textContent = data.stats.recent;
+                renderChart(data.stats.activityByDay);
+                renderTable(document.getElementById("recent-table"), records.slice(0, 5), false);
+                renderTable(document.getElementById("activity-table"), records, true);
+                status.textContent = "ONLINE";
+            } catch (error) {
+                status.textContent = "OFFLINE";
+                const message = document.getElementById("form-message");
+                message.textContent = "Could not connect to the local backend. Refresh the page or restart the server.";
+                message.classList.add("error");
+                console.error("Could not load local activity:", error);
+            }
+        }
+
+        function showView(name) {
+            const selected = views.includes(name) ? name : "overview";
+            document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === selected));
+            document.querySelectorAll(".nav a").forEach((link) => link.classList.toggle("active", link.dataset.view === selected));
+            document.getElementById("breadcrumb-view").textContent = selected === "request" ? "New request" : selected[0].toUpperCase() + selected.slice(1);
+        }
+
+        document.querySelectorAll("[data-view]").forEach((link) => {
+            link.addEventListener("click", () => showView(link.dataset.view));
+        });
+        window.addEventListener("hashchange", () => showView(location.hash.slice(1)));
+        document.querySelectorAll("[data-refresh]").forEach((button) => button.addEventListener("click", refresh));
+
+        document.getElementById("request-form").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const button = document.getElementById("submit-button");
+            const message = document.getElementById("form-message");
+            message.textContent = "";
+            message.classList.remove("error");
+            button.disabled = true;
+            button.textContent = "Saving…";
+
+            try {
+                const formData = new FormData(form);
+                const response = await fetch("/api/requests", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Accept: "application/json" },
+                    body: JSON.stringify({
+                        url: formData.get("url"),
+                        platform: formData.get("platform"),
+                        category: formData.get("category")
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || "Could not save your request");
+                form.reset();
+                message.textContent = `Request #${result.record.id} saved to your local activity.`;
+                await refresh();
+            } catch (error) {
+                message.textContent = error.message || "Could not save your request.";
+                message.classList.add("error");
+            } finally {
+                button.disabled = false;
+                button.textContent = "Save request ↗";
+            }
+        });
+
+        showView(location.hash.slice(1));
+        refresh();
+    </script>
+</body>
+</html>
