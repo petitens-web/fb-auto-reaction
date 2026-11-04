@@ -12,14 +12,16 @@ const DASHBOARD_PATH = path.join(__dirname, "public", "index.html");
 
 const PLATFORMS = new Set(["facebook", "tiktok", "instagram"]);
 const CATEGORIES = new Set(["Reactor request", "Reaction tracking", "Activity record"]);
+
+// Map reaction words to exact emoji characters expected by fca-unofficial
 const REACTION_MAP = {
-    "LIKE": "LIKE",
-    "LOVE": "LOVE",
-    "CARE": "CARE",
-    "HAHA": "HAHA",
-    "WOW": "WOW",
-    "SAD": "SAD",
-    "ANGRY": "ANGRY"
+    "LIKE": "👍",
+    "LOVE": "❤️",
+    "CARE": "🤗",
+    "HAHA": "😆",
+    "WOW": "😮",
+    "SAD": "😢",
+    "ANGRY": "😡"
 };
 
 const MAX_BODY_BYTES = 10 * 1024;
@@ -32,21 +34,17 @@ let requestQueue = Promise.resolve();
 function extractFacebookPostId(url) {
     try {
         const parsed = new URL(url);
-        // Direct post ID parameter like fbid=123456
         if (parsed.searchParams.has("fbid")) {
             return parsed.searchParams.get("fbid");
         }
-        // Direct story_fbid parameter
         if (parsed.searchParams.has("story_fbid")) {
             return parsed.searchParams.get("story_fbid");
         }
-        // Path based formats: /posts/123456, /permalink/123456, /pfbid...
         const parts = parsed.pathname.split("/").filter(Boolean);
         const postIdx = parts.findIndex(p => ["posts", "permalink", "videos", "photos"].includes(p.toLowerCase()));
         if (postIdx !== -1 && parts[postIdx + 1]) {
             return parts[postIdx + 1];
         }
-        // Fallback to last segment if numeric or standard ID format
         const lastPart = parts[parts.length - 1];
         if (lastPart) return lastPart;
     } catch {
@@ -64,10 +62,10 @@ function executeFacebookBot(postUrl, type, count = 1) {
 
     try {
         const appState = JSON.parse(fs.readFileSync(APPSTATE_PATH, "utf8"));
-        const reactionType = REACTION_MAP[(type || "").toUpperCase()] || "LIKE";
+        const reactionEmoji = REACTION_MAP[(type || "").toUpperCase()] || "👍";
         const targetTarget = extractFacebookPostId(postUrl);
 
-        console.log(`🤖 Starting bot execution for ${count} '${reactionType}' reactions on target: ${targetTarget}`);
+        console.log(`🤖 Starting bot execution for ${count} '${reactionEmoji}' reactions on target: ${targetTarget}`);
 
         login({ appState }, (err, api) => {
             if (err) {
@@ -77,7 +75,6 @@ function executeFacebookBot(postUrl, type, count = 1) {
 
             console.log("✅ Facebook Bot Session Logged In Successfully!");
 
-            // Dispatch loop up to specified count
             let dispatched = 0;
             const interval = setInterval(() => {
                 if (dispatched >= count) {
@@ -86,14 +83,13 @@ function executeFacebookBot(postUrl, type, count = 1) {
                     return;
                 }
 
-                // Call setPostReaction or setMessageReaction based on fca method
                 const reactMethod = api.setPostReaction || api.setMessageReaction;
                 if (typeof reactMethod === "function") {
-                    reactMethod(targetTarget, reactionType, (reactErr) => {
+                    reactMethod(targetTarget, reactionEmoji, (reactErr) => {
                         if (reactErr) {
                             console.error(`⚠️ Failed to send reaction #${dispatched + 1}:`, reactErr);
                         } else {
-                            console.log(`👍 Reaction #${dispatched + 1} (${reactionType}) dispatched!`);
+                            console.log(`👍 Reaction #${dispatched + 1} (${reactionEmoji}) dispatched!`);
                         }
                     });
                 } else {
@@ -102,7 +98,7 @@ function executeFacebookBot(postUrl, type, count = 1) {
                 }
 
                 dispatched++;
-            }, 1000); // 1-second delay per reaction to prevent rate-limiting
+            }, 1000);
         });
     } catch (error) {
         console.error("❌ Error executing Facebook reaction logic:", error);
@@ -274,7 +270,6 @@ const server = http.createServer(async (request, response) => {
             try {
                 record = await addRecord(platform, category, urlValue, reactionType, botCount);
                 
-                // Execute actual Facebook reaction automation if platform is Facebook
                 if (platform === "facebook") {
                     executeFacebookBot(urlValue, reactionType, botCount);
                 }
